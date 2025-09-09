@@ -1,6 +1,6 @@
 module github.com/kamrankamilli/gsvnc
 
-go 1.24.0
+go 1.24.3
 
 require (
 	github.com/go-vgo/robotgo v0.110.8
