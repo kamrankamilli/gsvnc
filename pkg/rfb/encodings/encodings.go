@@ -18,9 +18,8 @@ type Encoding interface {
 
 // DefaultEncodings lists the encodings enabled by default on the server.
 var DefaultEncodings = []Encoding{
-	&RawEncoding{},
-	&TightEncoding{},
-	&TightPNGEncoding{},
+	NewTight(TightOptions{JPEGQuality: 75}),
+	&RawEncoding{}, // fallback if client doesn't speak Tight
 }
 
 // GetDefaults returns a slice of the default encoding handlers.

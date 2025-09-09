@@ -7,13 +7,13 @@ import (
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
-// RawEncoding implements an Encoding intercace using raw pixel data.
+// RawEncoding implements an Encoding interface using raw pixel data.
 type RawEncoding struct{}
 
-// Code returns the code
+// Code returns the code for RAW.
 func (r *RawEncoding) Code() int32 { return 0 }
 
 // HandleBuffer handles an image sample.
 func (r *RawEncoding) HandleBuffer(w io.Writer, f *types.PixelFormat, img *image.RGBA) {
-	w.Write(applyPixelFormat(img, f))
+	_, _ = w.Write(applyPixelFormat(img, f))
 }
