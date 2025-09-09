@@ -7,7 +7,6 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/spf13/cobra v1.10.1
 	github.com/tinyzimmer/go-gst v0.2.33
-	golang.org/x/image v0.31.0
 	golang.org/x/net v0.43.0
 )
 
@@ -39,5 +38,6 @@ require (
 	github.com/vcaesar/tt v0.20.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
+	golang.org/x/image v0.31.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 )
