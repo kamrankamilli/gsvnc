@@ -6,7 +6,7 @@ import (
 	"image"
 	"strconv"
 
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 func applyPixelFormat(img *image.RGBA, format *types.PixelFormat) []byte {

@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
 )
 
 // Type represents an authentication type.

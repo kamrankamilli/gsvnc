@@ -3,10 +3,10 @@ package rfb
 import (
 	"net"
 
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
-	"github.com/tinyzimmer/gsvnc/pkg/display"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/events"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/display"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/events"
 )
 
 // Conn represents a client connection.

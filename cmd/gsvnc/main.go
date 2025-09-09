@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tinyzimmer/gsvnc/pkg/cli"
+	"github.com/kamrankamilli/gsvnc/pkg/cli"
 )
 
 func main() {

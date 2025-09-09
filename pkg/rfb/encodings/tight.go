@@ -8,8 +8,8 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/tinyzimmer/gsvnc/pkg/internal/util"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 // TightEncoding implements an Encoding intercace using Tight encoding.

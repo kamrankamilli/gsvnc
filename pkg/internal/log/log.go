@@ -7,7 +7,7 @@ import (
 	"path"
 	"runtime"
 
-	"github.com/tinyzimmer/gsvnc/pkg/config"
+	"github.com/kamrankamilli/gsvnc/pkg/config"
 )
 
 var infoLogger, warningLogger, errorLogger, debugLogger *glog.Logger

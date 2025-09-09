@@ -2,7 +2,7 @@ package display
 
 import (
 	"github.com/go-vgo/robotgo"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 func (d *Display) servePointerEvent(ev *types.PointerEvent) {

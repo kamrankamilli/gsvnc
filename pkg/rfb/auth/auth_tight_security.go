@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/util"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 // TightTunnelCapabilities represents TightSecurity tunnel capabilities.

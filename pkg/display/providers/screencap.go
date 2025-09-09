@@ -1,15 +1,12 @@
 package providers
 
 import (
-	"bytes"
 	"image"
 	"time"
 
 	"github.com/go-vgo/robotgo"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 	"github.com/nfnt/resize"
-	"golang.org/x/image/bmp"
-
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
 )
 
 // ScreenCapture implements a display provider that periodically captures the screen
@@ -32,59 +29,79 @@ func (s *ScreenCapture) PullFrame() *image.RGBA { return <-s.frameQueue }
 func (s *ScreenCapture) Start(width, height int) error {
 	s.frameQueue = make(chan *image.RGBA, 2)
 	s.stopCh = make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(time.Millisecond * 200) // 5 frames a second
-		for range ticker.C {
-			cont := true
 
-			func() {
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond) // ~5 FPS
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-s.stopCh:
+				log.Debug("Received event on stop channel, stopping screen capture")
+				return
+			case <-ticker.C:
 				bitMap := robotgo.CaptureScreen()
+				if bitMap == nil {
+					log.Error("CaptureScreen returned nil bitmap")
+					continue
+				}
+				// Always free the native bitmap.
 				defer robotgo.FreeBitmap(bitMap)
 
-				bs := robotgo.ToBitmapBytes(bitMap)
-
-				var img image.Image
-
-				img, err := bmp.Decode(bytes.NewReader(bs))
-				if err != nil {
-					log.Error("Unable to decode bitmap: ", err.Error())
-					return
+				// Convert native bitmap directly to Go image.Image (no BMP decode needed).
+				img := robotgo.ToImage(bitMap)
+				if img == nil {
+					log.Error("robotgo.ToImage returned nil image")
+					continue
 				}
 
+				// Resize if larger than target dims (keeps your original behavior of forcing width/height).
 				b := img.Bounds()
 				if b.Max.X > width || b.Max.Y > height {
 					img = resize.Resize(uint(width), uint(height), img, resize.Lanczos3)
 				}
 
-				// if the image was resized this will be done already, otherwise, convert
-				// to RGBA
-				if _, ok := img.(*image.RGBA); !ok {
-					img = convertToRGBA(img.(*image.NRGBA))
+				// Ensure *image.RGBA for downstream consumers.
+				var rgba *image.RGBA
+				switch v := img.(type) {
+				case *image.RGBA:
+					rgba = v
+				case *image.NRGBA:
+					rgba = convertToRGBA(v)
+				default:
+					// Generic conversion for other image types.
+					rect := img.Bounds()
+					dst := image.NewRGBA(rect)
+					// Avoid importing draw if you prefer: manual pixel copy
+					for y := rect.Min.Y; y < rect.Max.Y; y++ {
+						for x := rect.Min.X; x < rect.Max.X; x++ {
+							dst.Set(x, y, img.At(x, y))
+						}
+					}
+					rgba = dst
 				}
 
+				// Queue the image for processing (keep only the latest frame).
 				log.Debug("Queueing frame for processing")
-				// Queue the image for processing
 				select {
-				case <-s.stopCh:
-					log.Debug("Received event on stop channel, stopping screen capture")
-					cont = false
-				case s.frameQueue <- img.(*image.RGBA):
+				case s.frameQueue <- rgba:
 				default:
-					// pop the oldest item off the queue
-					// and let the next sample try to get in
-					log.Debug("Client is behind on frames, forcing oldest one off the queue")
+					// Queue full: drop oldest, then enqueue latest (non-blocking).
 					select {
 					case <-s.frameQueue:
+					default:
+					}
+					select {
+					case s.frameQueue <- rgba:
+					default:
+						// If we still can't push, just drop this frame.
+						log.Debug("Client is behind on frames, could not push to channel")
 					}
 				}
-
-			}()
-
-			if !cont {
-				return
 			}
 		}
 	}()
+
 	return nil
 }
 

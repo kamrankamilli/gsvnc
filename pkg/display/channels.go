@@ -3,7 +3,7 @@ package display
 import (
 	"time"
 
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 )
 
 func (d *Display) handleKeyEvents() {

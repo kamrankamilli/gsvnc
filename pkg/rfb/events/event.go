@@ -1,8 +1,8 @@
 package events
 
 import (
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
-	"github.com/tinyzimmer/gsvnc/pkg/display"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/display"
 )
 
 // Event is an inteface implemented by client message handlers.

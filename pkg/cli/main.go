@@ -17,14 +17,14 @@ import (
 
 	"github.com/tinyzimmer/go-gst/gst"
 
-	"github.com/tinyzimmer/gsvnc/pkg/config"
-	"github.com/tinyzimmer/gsvnc/pkg/display/providers"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/util"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/auth"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/encodings"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/events"
+	"github.com/kamrankamilli/gsvnc/pkg/config"
+	"github.com/kamrankamilli/gsvnc/pkg/display/providers"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/auth"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/encodings"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/events"
 )
 
 var bindHost string

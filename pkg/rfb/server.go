@@ -8,11 +8,11 @@ import (
 
 	"golang.org/x/net/websocket"
 
-	"github.com/tinyzimmer/gsvnc/pkg/display/providers"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/auth"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/encodings"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/events"
+	"github.com/kamrankamilli/gsvnc/pkg/display/providers"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/auth"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/encodings"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/events"
 )
 
 // ServerOpts represents options that can be used to configure a new RFB server.

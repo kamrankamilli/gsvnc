@@ -1,9 +1,9 @@
 package events
 
 import (
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
-	"github.com/tinyzimmer/gsvnc/pkg/display"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/display"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 // ClientCutText handles new text in the client's cut buffer.

@@ -11,8 +11,8 @@ import (
 	"github.com/tinyzimmer/go-gst/gst/app"
 	"github.com/tinyzimmer/go-gst/gst/video"
 
-	"github.com/tinyzimmer/gsvnc/pkg/config"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/config"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 )
 
 // Gstreamer implements a display provider using gstreamer to capture
@@ -22,8 +22,23 @@ type Gstreamer struct {
 	frameQueue chan *image.RGBA // A channel that will essentially only ever have the latest frame available.
 }
 
-// Close stops the gstreamer pipeline.
-func (g *Gstreamer) Close() error { return g.pipeline.Destroy() }
+// Close stops the gstreamer pipeline and releases resources.
+func (g *Gstreamer) Close() error {
+	if g.pipeline == nil {
+		return nil
+	}
+	// Stop the pipeline first.
+	err := g.pipeline.SetState(gst.StateNull)
+
+	// Release native refs and clear our handle.
+	g.pipeline.Unref()
+	g.pipeline = nil
+
+	// Optionally close the frame channel if you won't reuse this instance.
+	// close(g.frameQueue)
+
+	return err
+}
 
 // PullFrame returns a frame from the queue.
 func (g *Gstreamer) PullFrame() *image.RGBA { return <-g.frameQueue }
@@ -89,7 +104,7 @@ func (g *Gstreamer) Start(width, height int) error {
 		log.Debug("Syncing new element states with parent pipeline")
 		for _, e := range elements {
 			if ok := e.SyncStateWithParent(); !ok {
-				logPipelineErr(fmt.Errorf("Could not sink element state with parent: %s", e.Name()))
+				logPipelineErr(fmt.Errorf("Could not sink element state with parent: %s", e.GetName()))
 				return
 			}
 		}

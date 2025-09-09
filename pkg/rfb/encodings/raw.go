@@ -4,7 +4,7 @@ import (
 	"image"
 	"io"
 
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 // RawEncoding implements an Encoding intercace using raw pixel data.

@@ -1,6 +1,6 @@
 package auth
 
-import "github.com/tinyzimmer/gsvnc/pkg/buffer"
+import "github.com/kamrankamilli/gsvnc/pkg/buffer"
 
 // None represents no authentication.
 type None struct{}

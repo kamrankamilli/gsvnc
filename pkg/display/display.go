@@ -3,10 +3,10 @@ package display
 import (
 	"image"
 
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
-	"github.com/tinyzimmer/gsvnc/pkg/display/providers"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/encodings"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/types"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/display/providers"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/encodings"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 // Display represents a session with the local display. It manages the gstreamer pipelines

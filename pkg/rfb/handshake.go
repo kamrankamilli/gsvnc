@@ -6,11 +6,11 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/tinyzimmer/gsvnc/pkg/buffer"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/log"
-	"github.com/tinyzimmer/gsvnc/pkg/internal/util"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/auth"
-	"github.com/tinyzimmer/gsvnc/pkg/rfb/versions"
+	"github.com/kamrankamilli/gsvnc/pkg/buffer"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/auth"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/versions"
 )
 
 func (c *Conn) doHandshake() error {
