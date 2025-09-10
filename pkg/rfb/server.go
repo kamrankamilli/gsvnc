@@ -73,13 +73,11 @@ type Server struct {
 // Serve binds the RFB server to the given listener and starts serving connections.
 func (s *Server) Serve(ln net.Listener) error {
 	for {
-
 		// Accept a new connection
 		c, err := ln.Accept()
 		if err != nil {
 			return err
 		}
-
 		log.Info("New client connection from ", c.RemoteAddr().String())
 
 		// Create a new client connection
@@ -135,8 +133,7 @@ func (s *Server) AuthIsSupported(code uint8) bool {
 	return false
 }
 
-// VNCAuthIsEnabled returns true if VNCAuth is enabled on the server. This is used to signal
-// the need to generate (or, in the future, read in) the server password.
+// VNCAuthIsEnabled returns true if VNCAuth is enabled on the server.
 func (s *Server) VNCAuthIsEnabled() bool {
 	t := &auth.VNCAuth{}
 	for _, a := range s.enabledAuthTypes {
@@ -147,8 +144,7 @@ func (s *Server) VNCAuthIsEnabled() bool {
 	return false
 }
 
-// TightIsEnabled returns true if TightSecurity is enabled. This is used to determine if
-// capabilities being mutated by the user also need to be updated here.
+// TightIsEnabled returns true if TightSecurity is enabled.
 func (s *Server) TightIsEnabled() bool {
 	t := &auth.TightSecurity{}
 	for _, a := range s.enabledAuthTypes {
@@ -189,9 +185,7 @@ func (s *Server) GetEventHandlerMap() map[uint8]events.Event {
 	return out
 }
 
-// GetEncoding will iterate the requested encodings and return the best match
-// that can be served. If none of the requested encodings are supported (should
-// never happen as at least RAW is required by RFC) this function returns nil.
+// GetEncoding chooses the best match from requested encodings.
 func (s *Server) GetEncoding(encs []int32) encodings.Encoding {
 	for _, e := range encs {
 		for _, supported := range s.enabledEncodings {

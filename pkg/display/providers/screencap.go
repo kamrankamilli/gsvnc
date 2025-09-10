@@ -22,8 +22,13 @@ type ScreenCapture struct {
 
 func (s *ScreenCapture) Close() error {
 	if s.stopCh != nil {
-		close(s.stopCh)
+		select {
+		case <-s.stopCh:
+		default:
+			close(s.stopCh)
+		}
 	}
+	// frameQueue is closed by the producer goroutine via defer
 	return nil
 }
 
@@ -38,6 +43,7 @@ func (s *ScreenCapture) Start(width, height int) error {
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond) // ~5 FPS
 		defer ticker.Stop()
+		defer close(s.frameQueue) // ensure consumers unblock after exit
 
 		for {
 			select {

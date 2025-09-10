@@ -26,7 +26,7 @@ func (d *Display) handlePointerEvents() {
 }
 
 func (d *Display) handleFrameBufferEvents() {
-	// Keep behavior but reduce busy pushing by aligning tick to provider FPS (~200ms).
+	// align tick to provider FPS (~200ms).
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 
@@ -45,6 +45,8 @@ func (d *Display) handleFrameBufferEvents() {
 			if last != nil {
 				d.pushImage(last)
 			}
+		case <-d.done:
+			return
 		}
 	}
 }

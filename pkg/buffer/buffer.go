@@ -36,11 +36,11 @@ func NewReadWriteBuffer(c net.Conn) *ReadWriter {
 				}
 				if err := rw.write(msg); err != nil {
 					return
-				} // ← exit on error
+				}
 			case <-flushTicker.C:
 				if err := rw.flush(); err != nil {
 					return
-				} // ← exit on error
+				}
 			}
 		}
 	}()
@@ -78,7 +78,6 @@ func (rw *ReadWriter) Read(v interface{}) error {
 }
 
 // ReadInto reflects on the given struct and populates its fields from the read buffer.
-// The struct fields must be in the order they appear on the buffer.
 func (rw *ReadWriter) ReadInto(data interface{}) error {
 	rv := reflect.ValueOf(data)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {

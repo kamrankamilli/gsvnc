@@ -9,10 +9,7 @@ import (
 
 // Encoding is an interface to be implemented by different encoding handlers.
 type Encoding interface {
-	// Code should return the int32 code of the encoding type.
 	Code() int32
-	// HandleBuffer should craft a rectangle from the given image and
-	// queue it onto the given writer.
 	HandleBuffer(w io.Writer, format *types.PixelFormat, img *image.RGBA)
 }
 

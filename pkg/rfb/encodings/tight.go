@@ -51,20 +51,16 @@ func (t *TightEncoding) HandleBuffer(w io.Writer, f *types.PixelFormat, img *ima
 	defer t.pool.Put(buf)
 
 	if err := jpeg.Encode(buf, img, &jpeg.Options{Quality: t.quality}); err != nil {
-		// quietly drop frame if encode fails
+		// drop frame if encode fails
 		return
 	}
 	jpegBytes := buf.Bytes()
 
 	// Control byte: 0b1001_0000 (JPEG basic)
 	const tightJPEGCtrl = 0x90
-	util.Write(w, uint8(tightJPEGCtrl))
-
-	// Length (Tight variable length)
-	util.Write(w, computeTightLength(len(jpegBytes)))
-
-	// Payload
-	util.Write(w, jpegBytes)
+	_ = util.Write(w, uint8(tightJPEGCtrl))
+	_ = util.Write(w, computeTightLength(len(jpegBytes)))
+	_ = util.Write(w, jpegBytes)
 }
 
 func computeTightLength(n int) []byte {

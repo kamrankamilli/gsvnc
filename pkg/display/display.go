@@ -36,6 +36,9 @@ type Display struct {
 	outBuf []byte
 
 	lastBtnMask uint8
+
+	// shutdown signal for handler goroutines
+	done chan struct{}
 }
 
 // DefaultPixelFormat used in ServerInit messages (16bpp 5-6-5 true colour).
@@ -77,6 +80,7 @@ func NewDisplay(opts *Opts) *Display {
 		keyEvQueue:       make(chan *types.KeyEvent, 128),
 		cutTxtEvsQ:       make(chan *types.ClientCutText, 128),
 		downKeys:         make([]uint32, 0),
+		done:             make(chan struct{}),
 	}
 }
 
@@ -106,7 +110,9 @@ func (d *Display) SetEncodings(encs []int32, pseudoEns []int32) {
 func (d *Display) GetCurrentEncoding() encodings.Encoding { return d.currentEnc }
 
 // GetLastImage returns the most recent frame for the display (blocks until available).
-func (d *Display) GetLastImage() *image.RGBA { return d.displayProvider.PullFrame() }
+func (d *Display) GetLastImage() *image.RGBA {
+	return d.displayProvider.PullFrame()
+}
 
 // Dispatch methods
 func (d *Display) DispatchFrameBufferUpdate(req *types.FrameBufferUpdateRequest) { d.fbReqQueue <- req }
@@ -130,5 +136,6 @@ func (d *Display) Close() error {
 	close(d.ptrEvQueue)
 	close(d.keyEvQueue)
 	close(d.cutTxtEvsQ)
+	close(d.done) // ensure handler loops exit
 	return d.displayProvider.Close()
 }

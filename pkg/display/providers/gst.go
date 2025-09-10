@@ -5,6 +5,7 @@ import (
 	"image"
 	"io"
 	"runtime"
+	"sync"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -13,8 +14,7 @@ import (
 	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 )
 
-// Gstreamer implements a display provider using gstreamer to capture
-// video from the display.
+// Gstreamer implements a display provider using gstreamer to capture video.
 type Gstreamer struct {
 	pipeline   *gst.Pipeline
 	frameQueue chan *image.RGBA // latest-only queue
@@ -25,16 +25,30 @@ type Gstreamer struct {
 	swap  bool
 	w     int
 	h     int
+
+	// single-link control (avoid linking tail multiple times)
+	linkMu     sync.Mutex
+	linkedOnce bool
 }
 
 // Close stops the gstreamer pipeline and releases resources.
 func (g *Gstreamer) Close() error {
 	if g.pipeline == nil {
+		// ensure queue is closed so consumers unblock
+		if g.frameQueue != nil {
+			close(g.frameQueue)
+		}
 		return nil
 	}
+	// stop pipeline
 	err := g.pipeline.SetState(gst.StateNull)
 	g.pipeline.Unref()
 	g.pipeline = nil
+
+	// close queue to unblock readers
+	if g.frameQueue != nil {
+		close(g.frameQueue)
+	}
 	return err
 }
 
@@ -48,6 +62,7 @@ func (g *Gstreamer) Start(width, height int) error {
 	g.w, g.h = width, height
 	g.workA = image.NewRGBA(image.Rect(0, 0, width, height))
 	g.workB = image.NewRGBA(image.Rect(0, 0, width, height))
+	g.linkedOnce = false
 
 	pipeline, err := gst.NewPipeline("")
 	if err != nil {
@@ -74,6 +89,15 @@ func (g *Gstreamer) Start(width, height int) error {
 
 	// Build remaining pipeline once decodebin pads appear
 	decodebin.Connect("pad-added", func(self *gst.Element, srcPad *gst.Pad) {
+		// guard: link only once
+		g.linkMu.Lock()
+		if g.linkedOnce {
+			g.linkMu.Unlock()
+			return
+		}
+		g.linkedOnce = true
+		g.linkMu.Unlock()
+
 		log.Debug("Decodebin pad added, linking pipeline")
 		// queue ! videorate ! videoscale ! videoconvert ! capsfilter (RGBA WxH 5fps) ! appsink
 		elements, err := gst.NewElementMany("queue", "videorate", "videoscale", "videoconvert", "capsfilter", "appsink")
@@ -207,6 +231,7 @@ func (g *Gstreamer) Start(width, height int) error {
 			for {
 				msg := bus.TimedPop(gst.ClockTimeNone)
 				if msg == nil {
+					bus.Unref()
 					return
 				}
 				log.Debug(msg)
@@ -216,7 +241,11 @@ func (g *Gstreamer) Start(width, height int) error {
 	}
 
 	g.pipeline = pipeline
-	return pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		_ = g.Close()
+		return err
+	}
+	return nil
 }
 
 func getScreenCaptureElement() (elem *gst.Element, err error) {

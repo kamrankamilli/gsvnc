@@ -14,7 +14,6 @@ import (
 )
 
 func (c *Conn) doHandshake() error {
-
 	ver, err := versions.NegotiateProtocolVersion(c.buf)
 	if err != nil {
 		return err
@@ -48,7 +47,7 @@ func (c *Conn) doHandshake() error {
 	util.Write(buf, int32(len(serverName)))
 	util.Write(buf, []byte(serverName))
 
-	// Chcek if we are extending server init. This is only applicable to TightSecurity.
+	// Check if we are extending server init. This is only applicable to TightSecurity.
 	if extender, ok := authType.(interface{ ExtendServerInit(io.Writer) }); ok {
 		extender.ExtendServerInit(buf)
 	}
@@ -62,8 +61,7 @@ const (
 	statusFailed = 1
 )
 
-// NegotiateAuth wil negotiate authentication on the given connection, for the
-// given version.
+// NegotiateAuth will negotiate authentication on the given connection, for the given version.
 func (c *Conn) negotiateAuth(ver string, rw *buffer.ReadWriter) (auth.Type, error) {
 	buf := new(bytes.Buffer)
 
