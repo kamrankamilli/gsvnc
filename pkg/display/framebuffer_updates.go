@@ -24,11 +24,22 @@ func (d *Display) pushFrame(ur *types.FrameBufferUpdateRequest) {
 	if ur.Incremental() {
 		li = truncateImage(ur, li)
 	}
+	if li == nil || li.Bounds().Empty() {
+		return
+	}
 	log.Debug("Pushing frame to client")
 	d.pushImage(li)
 }
 
 func (d *Display) pushImage(img *image.RGBA) {
+	if img == nil || img.Bounds().Empty() {
+		return
+	}
+	// If the writer is closed, drop immediately — do not spend CPU/memory encoding.
+	if d.buf != nil && d.buf.IsClosed() {
+		return
+	}
+
 	b := img.Bounds()
 	format := d.GetPixelFormat()
 	if format.TrueColour == 0 {
@@ -39,7 +50,8 @@ func (d *Display) pushImage(img *image.RGBA) {
 
 	// Reuse bytes buffer to avoid allocations
 	var buf bytes.Buffer
-	buf.Grow(16 + img.Rect.Dx()*img.Rect.Dy()*2) // rough guess for 16bpp raw
+	// conservative grow for RAW/16bpp; Tight (JPEG) will re-alloc inside encoder as needed
+	buf.Grow(16 + img.Rect.Dx()*img.Rect.Dy()*2)
 
 	util.Write(&buf, uint8(cmdFramebufferUpdate))
 	util.Write(&buf, uint8(0))  // padding byte
@@ -55,11 +67,15 @@ func (d *Display) pushImage(img *image.RGBA) {
 	})
 
 	enc.HandleBuffer(&buf, d.GetPixelFormat(), img)
+
+	// Final guard: drop if closed or queue full
+	if d.buf != nil && d.buf.IsClosed() {
+		return
+	}
 	d.buf.Dispatch(buf.Bytes())
 }
 
 func truncateImage(ur *types.FrameBufferUpdateRequest, img *image.RGBA) *image.RGBA {
-	// ur.Width/Height are sizes, not max coords. Compute proper rectangle.
 	r := image.Rect(
 		int(ur.X),
 		int(ur.Y),
@@ -70,9 +86,7 @@ func truncateImage(ur *types.FrameBufferUpdateRequest, img *image.RGBA) *image.R
 	if r.Empty() {
 		return image.NewRGBA(image.Rect(0, 0, 0, 0))
 	}
-
 	out := image.NewRGBA(image.Rect(0, 0, r.Dx(), r.Dy()))
-	// Copy sub-rect row-wise (draw.Draw does it efficiently)
 	draw.Draw(out, out.Bounds(), img, r.Min, draw.Src)
 	return out
 }

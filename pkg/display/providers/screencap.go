@@ -22,17 +22,20 @@ type ScreenCapture struct {
 
 func (s *ScreenCapture) Close() error {
 	if s.stopCh != nil {
-		select {
-		case <-s.stopCh:
-		default:
-			close(s.stopCh)
-		}
+		close(s.stopCh)
 	}
-	// frameQueue is closed by the producer goroutine via defer
 	return nil
 }
 
-func (s *ScreenCapture) PullFrame() *image.RGBA { return <-s.frameQueue }
+// PullFrame returns a frame or nil if stopped.
+func (s *ScreenCapture) PullFrame() *image.RGBA {
+	select {
+	case f := <-s.frameQueue:
+		return f
+	case <-s.stopCh:
+		return nil
+	}
+}
 
 func (s *ScreenCapture) Start(width, height int) error {
 	s.frameQueue = make(chan *image.RGBA, 2)
@@ -43,8 +46,6 @@ func (s *ScreenCapture) Start(width, height int) error {
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond) // ~5 FPS
 		defer ticker.Stop()
-		defer close(s.frameQueue) // ensure consumers unblock after exit
-
 		for {
 			select {
 			case <-s.stopCh:
@@ -56,30 +57,20 @@ func (s *ScreenCapture) Start(width, height int) error {
 					log.Error("CaptureScreen returned nil bitmap")
 					continue
 				}
-
-				// Convert to Go image and free native bitmap ASAP (no defer in loop)
 				img := robotgo.ToImage(bitMap)
 				robotgo.FreeBitmap(bitMap)
-
 				if img == nil {
 					log.Error("robotgo.ToImage returned nil image")
 					continue
 				}
-
-				// Resize cheaply if needed
-				b := img.Bounds()
-				if b.Dx() != width || b.Dy() != height {
+				if b := img.Bounds(); b.Dx() != width || b.Dy() != height {
 					img = resize.Resize(uint(width), uint(height), img, resize.NearestNeighbor)
 				}
-
-				// Choose work buffer
 				dst := s.workA
 				if s.swap {
 					dst = s.workB
 				}
 				s.swap = !s.swap
-
-				// Copy into RGBA buffer row-wise (draw.Draw is optimized)
 				draw.Draw(dst, dst.Bounds(), img, img.Bounds().Min, draw.Src)
 
 				// Non-blocking enqueue keeping only latest
@@ -93,7 +84,6 @@ func (s *ScreenCapture) Start(width, height int) error {
 					select {
 					case s.frameQueue <- dst:
 					default:
-						// still full; drop
 					}
 				}
 			}

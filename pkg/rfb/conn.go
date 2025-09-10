@@ -36,7 +36,7 @@ func (s *Server) newConn(c net.Conn) *Conn {
 
 func (c *Conn) serve() {
 	defer c.c.Close()
-	defer c.buf.Close() // ensure writer goroutine terminates
+	defer c.buf.Close() // ensure writer is marked closed so producers drop immediately
 
 	if err := c.display.Start(); err != nil {
 		log.Errorf("Error starting display: %s", err)
