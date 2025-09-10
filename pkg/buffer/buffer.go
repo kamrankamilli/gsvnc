@@ -21,11 +21,11 @@ type ReadWriter struct {
 func NewReadWriteBuffer(c net.Conn) *ReadWriter {
 	rw := &ReadWriter{
 		br: bufio.NewReader(c),
-		bw: bufio.NewWriterSize(c, 256<<10), // larger buffer helps coalesce big frames
+		bw: bufio.NewWriterSize(c, 256<<10),
 		wq: make(chan []byte, 100),
 	}
 	go func() {
-		flushTicker := time.NewTicker(5 * time.Millisecond) // small batching window
+		flushTicker := time.NewTicker(5 * time.Millisecond)
 		defer flushTicker.Stop()
 		for {
 			select {
@@ -34,9 +34,13 @@ func NewReadWriteBuffer(c net.Conn) *ReadWriter {
 					_ = rw.flush()
 					return
 				}
-				_ = rw.write(msg)
+				if err := rw.write(msg); err != nil {
+					return
+				} // ← exit on error
 			case <-flushTicker.C:
-				_ = rw.flush()
+				if err := rw.flush(); err != nil {
+					return
+				} // ← exit on error
 			}
 		}
 	}()
