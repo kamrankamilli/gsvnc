@@ -33,46 +33,25 @@ func formatFormat(fstr string, args ...interface{}) string {
 	return out
 }
 
-// Info is the equivalent of a log.Println on the info logger.
-func Info(args ...interface{}) {
-	infoLogger.Println(formatNormal(args...))
+func Info(args ...interface{}) { infoLogger.Println(formatNormal(args...)) }
+func Infof(f string, args ...interface{}) {
+	infoLogger.Println(formatFormat(f, args...))
 }
-
-// Infof is the equivalent of a log.Printf on the info logger.
-func Infof(fstr string, args ...interface{}) {
-	infoLogger.Println(formatFormat(fstr, args...))
+func Warning(args ...interface{}) { warningLogger.Println(formatNormal(args...)) }
+func Warningf(f string, args ...interface{}) {
+	warningLogger.Println(formatFormat(f, args...))
 }
-
-// Warning is the equivalent of a log.Println on the warning logger.
-func Warning(args ...interface{}) {
-	warningLogger.Println(formatNormal(args...))
+func Error(args ...interface{}) { errorLogger.Println(formatNormal(args...)) }
+func Errorf(f string, args ...interface{}) {
+	errorLogger.Println(formatFormat(f, args...))
 }
-
-// Warningf is the equivalent of a log.Printf on the warning logger.
-func Warningf(fstr string, args ...interface{}) {
-	warningLogger.Println(formatFormat(fstr, args...))
-}
-
-// Error is the equivalent of a log.Println on the error logger.
-func Error(args ...interface{}) {
-	errorLogger.Println(formatNormal(args...))
-}
-
-// Errorf is the equivalent of a log.Printf on the error logger.
-func Errorf(fstr string, args ...interface{}) {
-	errorLogger.Println(formatFormat(fstr, args...))
-}
-
-// Debug is the equivalent of a log.Println on the debug logger.
 func Debug(args ...interface{}) {
 	if config.Debug {
 		debugLogger.Println(formatNormal(args...))
 	}
 }
-
-// Debugf is the equivalent of a log.Printf on the debug logger.
-func Debugf(fstr string, args ...interface{}) {
+func Debugf(f string, args ...interface{}) {
 	if config.Debug {
-		debugLogger.Println(formatFormat(fstr, args...))
+		debugLogger.Println(formatFormat(f, args...))
 	}
 }

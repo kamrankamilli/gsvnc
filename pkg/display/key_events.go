@@ -7,20 +7,22 @@ import (
 )
 
 func (d *Display) dispatchDownKeys() {
+	if len(d.downKeys) == 0 {
+		return
+	}
 	if len(d.downKeys) == 1 {
-		ks, ok := robotASCIMap[d.downKeys[0]]
-		if !ok {
+		if ks, ok := robotASCIMap[d.downKeys[0]]; ok {
+			robotgo.KeyTap(ks)
+		} else {
 			log.Println("Unhandled keysym:", d.downKeys[0])
-			return
 		}
-		robotgo.KeyTap(ks)
 		return
 	}
 	args := make([]interface{}, len(d.downKeys))
 	for idx, key := range d.downKeys {
 		ks, ok := robotASCIMap[key]
 		if !ok {
-			log.Println("Unhandled keysym:", d.downKeys[0])
+			log.Println("Unhandled keysym:", key)
 			return
 		}
 		args[len(d.downKeys)-1-idx] = ks
@@ -38,7 +40,7 @@ func (d *Display) appendDownKeyIfMissing(downKey uint32) {
 }
 
 func (d *Display) removeDownKey(downKey uint32) {
-	newDownKeys := make([]uint32, 0)
+	newDownKeys := new([0]uint32)[:0]
 	for _, k := range d.downKeys {
 		if k != downKey {
 			newDownKeys = append(newDownKeys, k)
@@ -87,10 +89,10 @@ var robotASCIMap = map[uint32]string{
 	0xff0d: "enter",
 	0xff09: "tab",
 	0xff1b: "esc",
-	0xff52: "up",    // Up arrow key
-	0xff54: "down",  // Down arrow key
-	0xff53: "right", // Right arrow key
-	0xff51: "left",  // Left arrow key
+	0xff52: "up",
+	0xff54: "down",
+	0xff53: "right",
+	0xff51: "left",
 	0xff50: "home",
 	0xff57: "end",
 	0xff55: "pageup",
@@ -109,20 +111,20 @@ var robotASCIMap = map[uint32]string{
 	0xffc8: "f11",
 	0xffc9: "f12",
 
-	0xffe7: "lcmd",   // left command
-	0xffe8: "rcmd",   // right command
-	0xffe9: "lalt",   // left alt
-	0xffea: "ralt",   // right alt
-	0xffe3: "lctrl",  // left ctrl
-	0xffe4: "rctrl",  // right ctrl
-	0xffe1: "lshift", // left shift
-	0xffe2: "rshift", // right shift
+	0xffe7: "lcmd",
+	0xffe8: "rcmd",
+	0xffe9: "lalt",
+	0xffea: "ralt",
+	0xffe3: "lctrl",
+	0xffe4: "rctrl",
+	0xffe1: "lshift",
+	0xffe2: "rshift",
 	0xffe5: "capslock",
 	0xff80: "space",
 	0xff61: "print",
-	0xfd1d: "printscreen", // No Mac support
+	0xfd1d: "printscreen",
 	0xff9e: "insert",
-	0xff67: "menu", //	Windows only
+	0xff67: "menu",
 
 	0xffb0: "0",
 	0xffb1: "1",

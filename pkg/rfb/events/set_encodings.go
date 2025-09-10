@@ -9,10 +9,8 @@ import (
 // SetEncodings handles the client set-encodings event.
 type SetEncodings struct{}
 
-// Code returns the code.
 func (s *SetEncodings) Code() uint8 { return 2 }
 
-// Handle handles the event.
 func (s *SetEncodings) Handle(buf *buffer.ReadWriter, d *display.Display) error {
 	if err := buf.ReadPadding(1); err != nil {
 		return err
@@ -33,22 +31,20 @@ func (s *SetEncodings) Handle(buf *buffer.ReadWriter, d *display.Display) error 
 	log.Infof("Client encodings: %#v", encs)
 	log.Infof("Client pseudo-encodings: %#v", pseudo)
 	d.SetEncodings(encs, pseudo)
-
 	return nil
 }
 
 func splitPseudoEncodings(encs []int32) (encodings, pseudoEncodings []int32) {
-	encodings = make([]int32, 0)
-	var i int
-	for i = 0; i < len(encs); i++ {
+	encodings = make([]int32, 0, len(encs))
+	i := 0
+	for ; i < len(encs); i++ {
 		encodings = append(encodings, encs[i])
 		if encs[i] == 0 {
 			break
 		}
 	}
-	if i == len(encs)-1 {
-		return
+	if i < len(encs)-1 {
+		pseudoEncodings = encs[i+1:]
 	}
-	pseudoEncodings = encs[i+1:]
 	return
 }

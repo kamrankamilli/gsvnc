@@ -6,12 +6,8 @@ import (
 )
 
 func (d *Display) servePointerEvent(ev *types.PointerEvent) {
-	btns := make(map[string]bool)
-	for mask, maskType := range btnMasks {
-		btns[maskType] = nthBitOf(ev.ButtonMask, mask) == 1
-	}
-	// This is just a mouse move event
-	robotgo.MoveMouse(int(ev.X), int(ev.Y))
+	// For now just move mouse. You can extend with button masks if desired.
+	robotgo.Move(int(ev.X), int(ev.Y))
 }
 
 var btnMasks = map[int]string{

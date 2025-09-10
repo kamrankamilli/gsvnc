@@ -3,7 +3,7 @@ package providers
 import (
 	"fmt"
 	"image"
-	"image/jpeg"
+	"io"
 	"runtime"
 	"time"
 
@@ -19,7 +19,14 @@ import (
 // video from the display.
 type Gstreamer struct {
 	pipeline   *gst.Pipeline
-	frameQueue chan *image.RGBA // A channel that will essentially only ever have the latest frame available.
+	frameQueue chan *image.RGBA // latest-only queue
+
+	// reuse two RGBA buffers to avoid per-frame allocs
+	workA *image.RGBA
+	workB *image.RGBA
+	swap  bool
+	w     int
+	h     int
 }
 
 // Close stops the gstreamer pipeline and releases resources.
@@ -27,26 +34,22 @@ func (g *Gstreamer) Close() error {
 	if g.pipeline == nil {
 		return nil
 	}
-	// Stop the pipeline first.
 	err := g.pipeline.SetState(gst.StateNull)
-
-	// Release native refs and clear our handle.
 	g.pipeline.Unref()
 	g.pipeline = nil
-
-	// Optionally close the frame channel if you won't reuse this instance.
-	// close(g.frameQueue)
-
 	return err
 }
 
 // PullFrame returns a frame from the queue.
 func (g *Gstreamer) PullFrame() *image.RGBA { return <-g.frameQueue }
 
-// Start will start the gstreamer pipelines and send imags to the frame queue.
+// Start will start the gstreamer pipeline and send images to the frame queue.
 func (g *Gstreamer) Start(width, height int) error {
 	log.Debug("Building gstreamer pipeline for display connection")
 	g.frameQueue = make(chan *image.RGBA, 2)
+	g.w, g.h = width, height
+	g.workA = image.NewRGBA(image.Rect(0, 0, width, height))
+	g.workB = image.NewRGBA(image.Rect(0, 0, width, height))
 
 	pipeline, err := gst.NewPipeline("")
 	if err != nil {
@@ -59,103 +62,142 @@ func (g *Gstreamer) Start(width, height int) error {
 		return err
 	}
 
-	// Let decodebin decide the best pipelin depending on the source stream
+	// Let decodebin decide best path
 	decodebin, err := gst.NewElement("decodebin")
 	if err != nil {
 		return err
 	}
-	pipeline.AddMany(src, decodebin)
-	src.Link(decodebin)
+	if err := pipeline.AddMany(src, decodebin); err != nil {
+		return err
+	}
+	if err := src.Link(decodebin); err != nil {
+		return fmt.Errorf("failed to link src->decodebin: %v", err)
+	}
 
-	// Buiild out the rest of the pipeline when decodebin is ready.
+	// Build remaining pipeline once decodebin pads appear
 	decodebin.Connect("pad-added", func(self *gst.Element, srcPad *gst.Pad) {
 		log.Debug("Decodebin pad added, linking pipeline")
-		elements, err := gst.NewElementMany("queue", "videorate", "videoscale", "videoconvert", "jpegenc", "appsink")
+		// queue ! videorate ! videoscale ! videoconvert ! capsfilter (RGBA WxH 5fps) ! appsink
+		elements, err := gst.NewElementMany("queue", "videorate", "videoscale", "videoconvert", "capsfilter", "appsink")
 		if err != nil {
 			logPipelineErr(err)
 			return
 		}
-
-		queue, videorate, videoscale, videoconvert, jpegenc, appsink :=
+		queue, videorate, videoscale, videoconvert, capsfilter, appsink :=
 			elements[0], elements[1], elements[2], elements[3], elements[4], elements[5]
 
-		// Build out caps
-		rateCaps := gst.NewCapsFromString("video/x-raw, framerate=5/1")
-		scaleCaps := gst.NewCapsFromString(fmt.Sprintf("video/x-raw, width=%d, height=%d", width, height))
+		// Caps
+		rateCaps := gst.NewCapsFromString("video/x-raw,framerate=5/1")
+		scaleCaps := gst.NewCapsFromString(fmt.Sprintf("video/x-raw,width=%d,height=%d", g.w, g.h))
+		rgbaCaps := gst.NewCapsFromString(fmt.Sprintf("video/x-raw,format=RGBA,width=%d,height=%d,framerate=5/1", g.w, g.h))
+
+		// Also describe to appsink via video.Info
 		videoInfo := video.NewInfo().
-			WithFormat(video.FormatRGBx, uint(width), uint(height)).
+			WithFormat(video.FormatRGBA, uint(g.w), uint(g.h)).
 			WithFPS(gst.Fraction(5, 1))
 
 		// Configure and link elements
 		if err := runAllUntilError([]func() error{
-			func() error { return videoscale.SetProperty("sharpen", 1) },
-			func() error { return videoscale.SetProperty("method", 0) }, // Use nearest neighbor - significantly cheaper CPU
+			func() error { return videoscale.SetProperty("method", 0) }, // nearest neighbor (cheap)
 			func() error { return pipeline.AddMany(elements...) },
-			func() error { return queue.Link(videorate) },
-			func() error { return videorate.LinkFiltered(videoscale, rateCaps) },
-			func() error { return videoscale.LinkFiltered(videoconvert, scaleCaps) },
-			func() error { return videoconvert.LinkFiltered(jpegenc, videoInfo.ToCaps()) },
-			func() error { return jpegenc.Link(appsink) },
+			func() error {
+				if err := queue.Link(videorate); err != nil {
+					return fmt.Errorf("link queue->videorate failed: %w", err)
+				}
+				return nil
+			},
+			func() error {
+				if err := videorate.LinkFiltered(videoscale, rateCaps); err != nil {
+					return fmt.Errorf("link videorate->videoscale failed: %w", err)
+				}
+				return nil
+			},
+			func() error {
+				if err := videoscale.LinkFiltered(videoconvert, scaleCaps); err != nil {
+					return fmt.Errorf("link videoscale->videoconvert failed: %w", err)
+				}
+				return nil
+			},
+			func() error { capsfilter.SetProperty("caps", rgbaCaps); return nil },
+			func() error {
+				if err := videoconvert.Link(capsfilter); err != nil {
+					return fmt.Errorf("link videoconvert->capsfilter failed: %w", err)
+				}
+				return nil
+			},
+			func() error {
+				sink := app.SinkFromElement(appsink)
+				if sink == nil {
+					return fmt.Errorf("appsink type assertion failed")
+				}
+				// Instruct appsink about caps; also drop when behind
+				sink.SetCaps(videoInfo.ToCaps())
+				sink.SetMaxBuffers(2)
+				sink.SetDrop(true)
+				// Pull samples via callbacks
+				sink.SetCallbacks(&app.SinkCallbacks{
+					NewSampleFunc: func(self *app.Sink) gst.FlowReturn {
+						sample := self.PullSample()
+						if sample == nil {
+							return gst.FlowOK
+						}
+						defer sample.Unref()
+
+						// Reader over mapped buffer
+						r := sample.GetBuffer().Reader()
+						if r == nil {
+							return gst.FlowOK
+						}
+
+						// Choose reusable destination
+						dst := g.workA
+						if g.swap {
+							dst = g.workB
+						}
+						g.swap = !g.swap
+
+						// Expect tightly-packed RGBA
+						need := g.w * g.h * 4
+						n, err := io.ReadFull(r, dst.Pix[:need])
+						if err != nil {
+							logPipelineErr(fmt.Errorf("read RGBA bytes failed: %w", err))
+							return gst.FlowError
+						}
+						if n != need {
+							logPipelineErr(fmt.Errorf("short RGBA read: got=%d want=%d", n, need))
+							return gst.FlowError
+						}
+
+						// Non-blocking enqueue (keep latest)
+						select {
+						case g.frameQueue <- dst:
+						default:
+							select {
+							case <-g.frameQueue:
+							default:
+							}
+							select {
+							case g.frameQueue <- dst:
+							default:
+							}
+						}
+						return gst.FlowOK
+					},
+				})
+				return nil
+			},
 		}); err != nil {
 			logPipelineErr(err)
 			return
 		}
 
-		log.Debug("Syncing new element states with parent pipeline")
+		// Sync states and connect pad
 		for _, e := range elements {
 			if ok := e.SyncStateWithParent(); !ok {
-				logPipelineErr(fmt.Errorf("Could not sink element state with parent: %s", e.GetName()))
+				logPipelineErr(fmt.Errorf("could not sync element: %s", e.GetName()))
 				return
 			}
 		}
-
-		// Connect to new samples on the sink
-		sink := app.SinkFromElement(appsink)
-		sink.SetCallbacks(&app.SinkCallbacks{
-			NewSampleFunc: func(self *app.Sink) gst.FlowReturn {
-				// Pull the sample from the sink
-				sample := self.PullSample()
-				if sample == nil {
-					return gst.FlowOK
-				}
-				defer sample.Unref()
-
-				log.Debug("Received new frame on the pipeline, decoding")
-
-				// Retrieve the pixels from the sample
-				buf := sample.GetBuffer().Reader()
-
-				img, err := jpeg.Decode(buf)
-				if err != nil {
-					logPipelineErr(err)
-					return gst.FlowError
-				}
-
-				log.Debug("Queueing frame for processing")
-				// Queue the image for processing
-				var ok bool
-				select {
-				case g.frameQueue <- img.(*image.RGBA):
-					ok = true
-				default:
-					ok = false
-					// pop the oldest item off the queue
-					// and let the next sample try to get in
-					select {
-					case <-g.frameQueue:
-					}
-				}
-
-				if !ok {
-					log.Debug("Client is behind on frames, could not push to channel")
-				} else {
-					log.Debug("Successfully queued frame for processing")
-				}
-
-				return gst.FlowOK
-			},
-		})
-
 		if ret := srcPad.Link(queue.GetStaticPad("sink")); ret != gst.PadLinkOK {
 			log.Error("Could not link src pad to pipeline")
 		}
@@ -181,10 +223,8 @@ func (g *Gstreamer) Start(width, height int) error {
 
 func getScreenCaptureElement() (elem *gst.Element, err error) {
 	switch runtime.GOOS {
-
 	case "windows":
 		log.Debug("Detected Windows, using gdiscreencapsrc")
-		// Other option is to use directX
 		elem, err = gst.NewElement("gdiscreencapsrc")
 		if err != nil {
 			return
@@ -193,31 +233,26 @@ func getScreenCaptureElement() (elem *gst.Element, err error) {
 
 	case "darwin":
 		log.Debug("Detected macOS, using avfvideosrc")
-		// I think this is the only option for mac
 		elem, err = gst.NewElement("avfvideosrc")
 		if err != nil {
 			return
 		}
-		err = elem.SetProperty("capture-screen", true)
-		if err != nil {
+		if err = elem.SetProperty("capture-screen", true); err != nil {
 			return
 		}
 		err = elem.SetProperty("capture-screen-cursor", true)
 
 	default:
 		log.Debug("Detected Linux, using ximagesrc")
-		// For now the default assumes an X display
 		elem, err = gst.NewElement("ximagesrc")
 		if err != nil {
 			return
 		}
-		err = elem.SetProperty("show-pointer", true)
-		if err != nil {
+		if err = elem.SetProperty("show-pointer", true); err != nil {
 			return
 		}
-		// XDamage will increase CPU usage considerably in some cases
+		// Consider enabling damage if CPU allows
 		err = elem.SetProperty("use-damage", false)
-
 	}
 	return
 }
