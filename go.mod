@@ -3,10 +3,10 @@ module github.com/kamrankamilli/gsvnc
 go 1.24.3
 
 require (
+	github.com/go-gst/go-gst v1.4.0
 	github.com/go-vgo/robotgo v0.110.8
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/spf13/cobra v1.10.1
-	github.com/tinyzimmer/go-gst v0.2.33
 	golang.org/x/net v0.43.0
 )
 
@@ -14,6 +14,7 @@ require (
 	github.com/dblohm7/wingoes v0.0.0-20240820181039-f2b84150679e // indirect
 	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/gen2brain/shm v0.1.1 // indirect
+	github.com/go-gst/go-glib v1.4.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -28,7 +29,6 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.4 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tailscale/win v0.0.0-20250213223159-5992cb43ca35 // indirect
-	github.com/tinyzimmer/go-glib v0.0.25 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/vcaesar/gops v0.41.0 // indirect

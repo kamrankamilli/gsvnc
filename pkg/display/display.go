@@ -34,6 +34,8 @@ type Display struct {
 
 	// scratch output buffer reused for frames
 	outBuf []byte
+
+	lastBtnMask uint8
 }
 
 // DefaultPixelFormat used in ServerInit messages (16bpp 5-6-5 true colour).

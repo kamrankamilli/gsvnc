@@ -7,10 +7,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/tinyzimmer/go-gst/gst"
-	"github.com/tinyzimmer/go-gst/gst/app"
-	"github.com/tinyzimmer/go-gst/gst/video"
-
+	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/gst/app"
+	"github.com/go-gst/go-gst/gst/video"
 	"github.com/kamrankamilli/gsvnc/pkg/config"
 	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 )

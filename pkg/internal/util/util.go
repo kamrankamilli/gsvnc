@@ -4,7 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math/rand"
 	"reflect"
+	"time"
 )
 
 // PackStruct writes struct fields to buf in declaration order (BigEndian).
@@ -28,4 +30,19 @@ func PackStruct(buf io.Writer, data interface{}) error {
 // Write writes any value in BigEndian to buf.
 func Write(buf io.Writer, v interface{}) error {
 	return binary.Write(buf, binary.BigEndian, v)
+}
+
+const charset = "abcdefghijklmnopqrstuvwxyz" +
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var seededRand = rand.New(
+	rand.NewSource(time.Now().UnixNano()))
+
+// RandomString returns a randomly generated string of the given length.
+func RandomString(length int) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }

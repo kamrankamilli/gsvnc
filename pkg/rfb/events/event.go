@@ -25,3 +25,12 @@ func GetDefaults() []Event {
 	copy(out, DefaultEvents)
 	return out
 }
+
+func CloseEventHandlers(hdlrs map[uint8]Event) {
+	for _, ev := range hdlrs {
+		closer, ok := ev.(interface{ Close() })
+		if ok {
+			closer.Close()
+		}
+	}
+}

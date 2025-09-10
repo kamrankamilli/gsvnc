@@ -12,10 +12,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/go-gst/go-gst/gst"
 	"github.com/go-vgo/robotgo"
 	"github.com/spf13/cobra"
-
-	"github.com/tinyzimmer/go-gst/gst"
 
 	"github.com/kamrankamilli/gsvnc/pkg/config"
 	"github.com/kamrankamilli/gsvnc/pkg/display/providers"
