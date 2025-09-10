@@ -2,6 +2,8 @@ package rfb
 
 import (
 	"net"
+	"runtime"
+	"runtime/debug"
 
 	"github.com/kamrankamilli/gsvnc/pkg/buffer"
 	"github.com/kamrankamilli/gsvnc/pkg/display"
@@ -19,7 +21,7 @@ type Conn struct {
 
 func (s *Server) newConn(c net.Conn) *Conn {
 	buf := buffer.NewReadWriteBuffer(c)
-	conn := &Conn{
+	return &Conn{
 		c:   c,
 		s:   s,
 		buf: buf,
@@ -31,12 +33,17 @@ func (s *Server) newConn(c net.Conn) *Conn {
 			GetEncodingFunc: s.GetEncoding,
 		}),
 	}
-	return conn
 }
 
 func (c *Conn) serve() {
 	defer c.c.Close()
-	defer c.buf.Close() // ensure producers drop immediately after disconnect
+	defer c.buf.Close() // stop writer goroutine immediately
+
+	// Ensure freed pages are returned quickly after this connection ends.
+	defer func() {
+		runtime.GC()
+		debug.FreeOSMemory()
+	}()
 
 	if err := c.display.Start(); err != nil {
 		log.Errorf("Error starting display: %s", err)
@@ -44,11 +51,9 @@ func (c *Conn) serve() {
 	}
 	defer c.display.Close()
 
-	// Get a map of event handlers for this connection
 	eventHandlers := c.s.GetEventHandlerMap()
 	defer events.CloseEventHandlers(eventHandlers)
 
-	// handle events
 	for {
 		cmd, err := c.buf.ReadByte()
 		if err != nil {

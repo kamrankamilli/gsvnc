@@ -115,7 +115,7 @@ func (rw *ReadWriter) Dispatch(msg []byte) {
 	if rw.IsClosed() {
 		return
 	}
-	defer func() { _ = recover() }() // send-after-close safety
+	defer func() { _ = recover() }()
 	select {
 	case rw.wq <- msg:
 	default:
@@ -123,8 +123,7 @@ func (rw *ReadWriter) Dispatch(msg []byte) {
 	}
 }
 
-// DispatchLatest guarantees queue holds the most recent payload.
-// If full, it drops the oldest then enqueues the new frame.
+// DispatchLatest keeps only the newest payload (drop oldest on overflow).
 func (rw *ReadWriter) DispatchLatest(msg []byte) {
 	if rw.IsClosed() {
 		return
@@ -135,8 +134,7 @@ func (rw *ReadWriter) DispatchLatest(msg []byte) {
 		case rw.wq <- msg:
 			return
 		default:
-			// drop one oldest (non-blocking)
-			select {
+			select { // drop one oldest
 			case <-rw.wq:
 			default:
 			}

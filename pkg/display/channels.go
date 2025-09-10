@@ -58,7 +58,7 @@ func (d *Display) handleFrameBufferEvents() {
 			d.pushFrame(ur)
 
 		case <-ticker.C:
-			// Only push keepalive when writer isn't busy and still open.
+			// Only push keepalive when writer isn't busy and is open.
 			if d.buf != nil {
 				if d.buf.IsClosed() {
 					return

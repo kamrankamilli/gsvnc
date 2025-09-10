@@ -10,7 +10,6 @@ import (
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
-// Server -> Client
 const (
 	encodingCopyRect     = 1
 	cmdFramebufferUpdate = 0
@@ -35,7 +34,7 @@ func (d *Display) pushImage(img *image.RGBA) {
 	if img == nil || img.Bounds().Empty() {
 		return
 	}
-	// If the writer is closed, drop immediately — do not spend CPU/memory encoding.
+	// If the writer is closed, drop immediately.
 	if d.buf != nil && d.buf.IsClosed() {
 		return
 	}
@@ -48,13 +47,13 @@ func (d *Display) pushImage(img *image.RGBA) {
 	}
 	enc := d.GetCurrentEncoding()
 
-	// Reuse bytes buffer to avoid allocations
-	var buf bytes.Buffer
-	buf.Grow(16 + img.Rect.Dx()*img.Rect.Dy()*2) // rough guess for 16bpp raw
+	// DO NOT pre-grow to raw size; that pinned ~2MB per frame.
+	var buf bytes.Buffer // small, grows as needed
 
+	// header
 	util.Write(&buf, uint8(cmdFramebufferUpdate))
-	util.Write(&buf, uint8(0))  // padding byte
-	util.Write(&buf, uint16(1)) // 1 rectangle
+	util.Write(&buf, uint8(0))  // padding
+	util.Write(&buf, uint16(1)) // rectangles=1
 
 	// rectangle header
 	util.PackStruct(&buf, &types.FrameBufferRectangle{
@@ -65,13 +64,14 @@ func (d *Display) pushImage(img *image.RGBA) {
 		EncType: enc.Code(),
 	})
 
+	// payload by encoder
 	enc.HandleBuffer(&buf, d.GetPixelFormat(), img)
 
 	// Final guard: drop if closed
 	if d.buf != nil && d.buf.IsClosed() {
 		return
 	}
-	// Keep only the latest framebuffer in the queue to avoid latency.
+	// Keep only latest framebuffer in the queue (avoid backlog/latency).
 	d.buf.DispatchLatest(buf.Bytes())
 }
 

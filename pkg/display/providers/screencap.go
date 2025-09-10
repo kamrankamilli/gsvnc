@@ -3,6 +3,7 @@ package providers
 import (
 	"image"
 	"image/draw"
+	"sync"
 	"time"
 
 	"github.com/go-vgo/robotgo"
@@ -14,6 +15,8 @@ import (
 type ScreenCapture struct {
 	frameQueue chan *image.RGBA
 	stopCh     chan struct{}
+	wg         sync.WaitGroup
+
 	// reuse two buffers to avoid allocs
 	workA *image.RGBA
 	workB *image.RGBA
@@ -24,6 +27,11 @@ func (s *ScreenCapture) Close() error {
 	if s.stopCh != nil {
 		close(s.stopCh)
 	}
+	s.wg.Wait() // ensure goroutine done before clearing memory
+	// Release references so GC can reclaim immediately.
+	s.frameQueue = nil
+	s.workA = nil
+	s.workB = nil
 	return nil
 }
 
@@ -42,7 +50,10 @@ func (s *ScreenCapture) Start(width, height int) error {
 	s.workA = image.NewRGBA(image.Rect(0, 0, width, height))
 	s.workB = image.NewRGBA(image.Rect(0, 0, width, height))
 
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
+
 		ticker := time.NewTicker(200 * time.Millisecond) // ~5 FPS
 		defer ticker.Stop()
 
@@ -57,7 +68,6 @@ func (s *ScreenCapture) Start(width, height int) error {
 					log.Error("CaptureScreen returned nil bitmap")
 					continue
 				}
-
 				img := robotgo.ToImage(bitMap)
 				robotgo.FreeBitmap(bitMap)
 

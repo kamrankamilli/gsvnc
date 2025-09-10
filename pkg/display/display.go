@@ -9,7 +9,7 @@ import (
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
-// Display represents a session with the local display. It manages the pipelines and events.
+// Display manages the local display session.
 type Display struct {
 	displayProvider providers.Display
 
@@ -31,13 +31,12 @@ type Display struct {
 
 	// Memory of keys that are currently down.
 	downKeys []uint32
-
 	// scratch output buffer reused for frames
 	outBuf []byte
 
 	lastBtnMask uint8
 
-	// done closes when the Display is shutting down, so watchers can exit.
+	// closed to stop watcher goroutines
 	done chan struct{}
 }
 
@@ -84,32 +83,21 @@ func NewDisplay(opts *Opts) *Display {
 	}
 }
 
-// GetDimensions returns the current dimensions of the display.
 func (d *Display) GetDimensions() (width, height int) { return d.width, d.height }
-
-// SetDimensions sets the dimensions of the display.
-func (d *Display) SetDimensions(width, height int) { d.width, d.height = width, height }
-
-// GetPixelFormat returns the current pixel format for the display.
+func (d *Display) SetDimensions(width, height int)    { d.width, d.height = width, height }
 func (d *Display) GetPixelFormat() *types.PixelFormat { return d.pixelFormat }
-
-// SetPixelFormat sets the pixel format for the display.
-func (d *Display) SetPixelFormat(pf *types.PixelFormat) { d.pixelFormat = pf }
-
-// GetEncodings returns the encodings currently supported by the client.
+func (d *Display) SetPixelFormat(pf *types.PixelFormat) {
+	d.pixelFormat = pf
+}
 func (d *Display) GetEncodings() []int32 { return d.encodings }
-
-// SetEncodings sets the encodings that the connected client supports.
 func (d *Display) SetEncodings(encs []int32, pseudoEns []int32) {
 	d.encodings = encs
 	d.pseudoEncodings = pseudoEns
 	d.currentEnc = d.getEncodingsFunc(encs)
 }
-
-// GetCurrentEncoding returns the encoder in use.
 func (d *Display) GetCurrentEncoding() encodings.Encoding { return d.currentEnc }
 
-// GetLastImage returns the most recent frame for the display (blocks until available).
+// GetLastImage blocks until a frame is available (or provider closed).
 func (d *Display) GetLastImage() *image.RGBA { return d.displayProvider.PullFrame() }
 
 // Dispatch methods
@@ -118,7 +106,7 @@ func (d *Display) DispatchKeyEvent(ev *types.KeyEvent)                          
 func (d *Display) DispatchPointerEvent(ev *types.PointerEvent)                   { d.ptrEvQueue <- ev }
 func (d *Display) DispatchClientCutText(ev *types.ClientCutText)                 { d.cutTxtEvsQ <- ev }
 
-// Start underlying display provider.
+// Start provider and watchers.
 func (d *Display) Start() error {
 	w, h := d.GetDimensions()
 	if err := d.displayProvider.Start(w, h); err != nil {
@@ -128,13 +116,19 @@ func (d *Display) Start() error {
 	return nil
 }
 
-// Close will stop the provider and close channels.
+// Close stops everything and releases references so GC can collect promptly.
 func (d *Display) Close() error {
-	// Signal watchers to exit and close queues to end range loops
 	close(d.done)
 	close(d.fbReqQueue)
 	close(d.ptrEvQueue)
 	close(d.keyEvQueue)
 	close(d.cutTxtEvsQ)
-	return d.displayProvider.Close()
+
+	err := d.displayProvider.Close()
+	d.displayProvider = nil
+
+	// Help GC drop memory quickly.
+	d.downKeys = nil
+	d.outBuf = nil
+	return err
 }
