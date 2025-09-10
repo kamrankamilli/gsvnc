@@ -5,7 +5,6 @@ import (
 	"image"
 	"io"
 	"runtime"
-	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -206,7 +205,7 @@ func (g *Gstreamer) Start(width, height int) error {
 		bus := pipeline.GetPipelineBus()
 		go func() {
 			for {
-				msg := bus.TimedPop(time.Duration(-1))
+				msg := bus.TimedPop(gst.ClockTimeNone)
 				if msg == nil {
 					return
 				}
