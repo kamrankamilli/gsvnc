@@ -50,8 +50,7 @@ func (d *Display) pushImage(img *image.RGBA) {
 
 	// Reuse bytes buffer to avoid allocations
 	var buf bytes.Buffer
-	// conservative grow for RAW/16bpp; Tight (JPEG) will re-alloc inside encoder as needed
-	buf.Grow(16 + img.Rect.Dx()*img.Rect.Dy()*2)
+	buf.Grow(16 + img.Rect.Dx()*img.Rect.Dy()*2) // rough guess for 16bpp raw
 
 	util.Write(&buf, uint8(cmdFramebufferUpdate))
 	util.Write(&buf, uint8(0))  // padding byte
@@ -68,11 +67,12 @@ func (d *Display) pushImage(img *image.RGBA) {
 
 	enc.HandleBuffer(&buf, d.GetPixelFormat(), img)
 
-	// Final guard: drop if closed or queue full
+	// Final guard: drop if closed
 	if d.buf != nil && d.buf.IsClosed() {
 		return
 	}
-	d.buf.Dispatch(buf.Bytes())
+	// Keep only the latest framebuffer in the queue to avoid latency.
+	d.buf.DispatchLatest(buf.Bytes())
 }
 
 func truncateImage(ur *types.FrameBufferUpdateRequest, img *image.RGBA) *image.RGBA {
@@ -86,6 +86,7 @@ func truncateImage(ur *types.FrameBufferUpdateRequest, img *image.RGBA) *image.R
 	if r.Empty() {
 		return image.NewRGBA(image.Rect(0, 0, 0, 0))
 	}
+
 	out := image.NewRGBA(image.Rect(0, 0, r.Dx(), r.Dy()))
 	draw.Draw(out, out.Bounds(), img, r.Min, draw.Src)
 	return out

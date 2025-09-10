@@ -36,7 +36,7 @@ func (s *Server) newConn(c net.Conn) *Conn {
 
 func (c *Conn) serve() {
 	defer c.c.Close()
-	defer c.buf.Close() // ensure writer is marked closed so producers drop immediately
+	defer c.buf.Close() // ensure producers drop immediately after disconnect
 
 	if err := c.display.Start(); err != nil {
 		log.Errorf("Error starting display: %s", err)

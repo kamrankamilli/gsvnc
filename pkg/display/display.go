@@ -37,7 +37,7 @@ type Display struct {
 
 	lastBtnMask uint8
 
-	// shutdown signal for handler goroutines
+	// done closes when the Display is shutting down, so watchers can exit.
 	done chan struct{}
 }
 
@@ -110,9 +110,7 @@ func (d *Display) SetEncodings(encs []int32, pseudoEns []int32) {
 func (d *Display) GetCurrentEncoding() encodings.Encoding { return d.currentEnc }
 
 // GetLastImage returns the most recent frame for the display (blocks until available).
-func (d *Display) GetLastImage() *image.RGBA {
-	return d.displayProvider.PullFrame()
-}
+func (d *Display) GetLastImage() *image.RGBA { return d.displayProvider.PullFrame() }
 
 // Dispatch methods
 func (d *Display) DispatchFrameBufferUpdate(req *types.FrameBufferUpdateRequest) { d.fbReqQueue <- req }
@@ -132,10 +130,11 @@ func (d *Display) Start() error {
 
 // Close will stop the provider and close channels.
 func (d *Display) Close() error {
+	// Signal watchers to exit and close queues to end range loops
+	close(d.done)
 	close(d.fbReqQueue)
 	close(d.ptrEvQueue)
 	close(d.keyEvQueue)
 	close(d.cutTxtEvsQ)
-	close(d.done) // ensure handler loops exit
 	return d.displayProvider.Close()
 }

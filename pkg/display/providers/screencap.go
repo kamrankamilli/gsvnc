@@ -27,7 +27,6 @@ func (s *ScreenCapture) Close() error {
 	return nil
 }
 
-// PullFrame returns a frame or nil if stopped.
 func (s *ScreenCapture) PullFrame() *image.RGBA {
 	select {
 	case f := <-s.frameQueue:
@@ -46,6 +45,7 @@ func (s *ScreenCapture) Start(width, height int) error {
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond) // ~5 FPS
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-s.stopCh:
@@ -57,20 +57,29 @@ func (s *ScreenCapture) Start(width, height int) error {
 					log.Error("CaptureScreen returned nil bitmap")
 					continue
 				}
+
 				img := robotgo.ToImage(bitMap)
 				robotgo.FreeBitmap(bitMap)
+
 				if img == nil {
 					log.Error("robotgo.ToImage returned nil image")
 					continue
 				}
-				if b := img.Bounds(); b.Dx() != width || b.Dy() != height {
+
+				// Resize if needed
+				b := img.Bounds()
+				if b.Dx() != width || b.Dy() != height {
 					img = resize.Resize(uint(width), uint(height), img, resize.NearestNeighbor)
 				}
+
+				// Choose work buffer
 				dst := s.workA
 				if s.swap {
 					dst = s.workB
 				}
 				s.swap = !s.swap
+
+				// Copy into RGBA buffer
 				draw.Draw(dst, dst.Bounds(), img, img.Bounds().Min, draw.Src)
 
 				// Non-blocking enqueue keeping only latest

@@ -70,11 +70,13 @@ func (g *Gstreamer) Start(width, height int) error {
 		return err
 	}
 
+	// Get the screen capture element depending on the OS
 	src, err := getScreenCaptureElement()
 	if err != nil {
 		return err
 	}
 
+	// Let decodebin decide best path
 	decodebin, err := gst.NewElement("decodebin")
 	if err != nil {
 		return err
@@ -86,6 +88,7 @@ func (g *Gstreamer) Start(width, height int) error {
 		return fmt.Errorf("failed to link src->decodebin: %v", err)
 	}
 
+	// Build remaining pipeline once decodebin pads appear
 	decodebin.Connect("pad-added", func(self *gst.Element, srcPad *gst.Pad) {
 		g.linkMu.Lock()
 		if g.linkedOnce {
@@ -96,6 +99,7 @@ func (g *Gstreamer) Start(width, height int) error {
 		g.linkMu.Unlock()
 
 		log.Debug("Decodebin pad added, linking pipeline")
+		// queue ! videorate ! videoscale ! videoconvert ! capsfilter (RGBA WxH 5fps) ! appsink
 		elements, err := gst.NewElementMany("queue", "videorate", "videoscale", "videoconvert", "capsfilter", "appsink")
 		if err != nil {
 			logPipelineErr(err)
@@ -104,14 +108,19 @@ func (g *Gstreamer) Start(width, height int) error {
 		queue, videorate, videoscale, videoconvert, capsfilter, appsink :=
 			elements[0], elements[1], elements[2], elements[3], elements[4], elements[5]
 
+		// Caps
 		rateCaps := gst.NewCapsFromString("video/x-raw,framerate=5/1")
 		scaleCaps := gst.NewCapsFromString(fmt.Sprintf("video/x-raw,width=%d,height=%d", g.w, g.h))
 		rgbaCaps := gst.NewCapsFromString(fmt.Sprintf("video/x-raw,format=RGBA,width=%d,height=%d,framerate=5/1", g.w, g.h))
 
-		videoInfo := video.NewInfo().WithFormat(video.FormatRGBA, uint(g.w), uint(g.h)).WithFPS(gst.Fraction(5, 1))
+		// Also describe to appsink via video.Info
+		videoInfo := video.NewInfo().
+			WithFormat(video.FormatRGBA, uint(g.w), uint(g.h)).
+			WithFPS(gst.Fraction(5, 1))
 
+		// Configure and link elements
 		if err := runAllUntilError([]func() error{
-			func() error { return videoscale.SetProperty("method", 0) },
+			func() error { return videoscale.SetProperty("method", 0) }, // nearest neighbor (cheap)
 			func() error { return pipeline.AddMany(elements...) },
 			func() error { return queue.Link(videorate) },
 			func() error { return videorate.LinkFiltered(videoscale, rateCaps) },
@@ -123,9 +132,11 @@ func (g *Gstreamer) Start(width, height int) error {
 				if sink == nil {
 					return fmt.Errorf("appsink type assertion failed")
 				}
+				// Instruct appsink about caps; also drop when behind
 				sink.SetCaps(videoInfo.ToCaps())
 				sink.SetMaxBuffers(2)
 				sink.SetDrop(true)
+				// Pull samples via callbacks
 				sink.SetCallbacks(&app.SinkCallbacks{
 					NewSampleFunc: func(self *app.Sink) gst.FlowReturn {
 						select {
@@ -139,17 +150,20 @@ func (g *Gstreamer) Start(width, height int) error {
 						}
 						defer sample.Unref()
 
+						// Reader over mapped buffer
 						r := sample.GetBuffer().Reader()
 						if r == nil {
 							return gst.FlowOK
 						}
 
+						// Choose reusable destination
 						dst := g.workA
 						if g.swap {
 							dst = g.workB
 						}
 						g.swap = !g.swap
 
+						// Expect tightly-packed RGBA
 						need := g.w * g.h * 4
 						n, err := io.ReadFull(r, dst.Pix[:need])
 						if err != nil || n != need {
@@ -157,13 +171,12 @@ func (g *Gstreamer) Start(width, height int) error {
 							return gst.FlowError
 						}
 
-						// Enqueue latest; bail out if closing.
+						// Non-blocking enqueue (keep latest)
 						select {
 						case <-g.done:
 							return gst.FlowEOS
 						case g.frameQueue <- dst:
 						default:
-							// drop oldest
 							select {
 							case <-g.frameQueue:
 							default:
@@ -185,6 +198,7 @@ func (g *Gstreamer) Start(width, height int) error {
 			return
 		}
 
+		// Sync states and connect pad
 		for _, e := range elements {
 			if ok := e.SyncStateWithParent(); !ok {
 				logPipelineErr(fmt.Errorf("could not sync element: %s", e.GetName()))
@@ -196,8 +210,7 @@ func (g *Gstreamer) Start(width, height int) error {
 		}
 	})
 
-	// NOTE: we intentionally do NOT start a bus logger goroutine here to avoid a
-	// stuck TimedPop keeping memory alive after pipeline shutdown.
+	// Intentionally no bus logger goroutine to avoid a stuck TimedPop after shutdown.
 
 	g.pipeline = pipeline
 	if err := pipeline.SetState(gst.StatePlaying); err != nil {
@@ -210,11 +223,13 @@ func (g *Gstreamer) Start(width, height int) error {
 func getScreenCaptureElement() (elem *gst.Element, err error) {
 	switch runtime.GOOS {
 	case "windows":
+		log.Debug("Detected Windows, using gdiscreencapsrc")
 		elem, err = gst.NewElement("gdiscreencapsrc")
 		if err == nil {
 			_ = elem.SetProperty("cursor", true)
 		}
 	case "darwin":
+		log.Debug("Detected macOS, using avfvideosrc")
 		elem, err = gst.NewElement("avfvideosrc")
 		if err == nil {
 			if err = elem.SetProperty("capture-screen", true); err == nil {
@@ -222,6 +237,7 @@ func getScreenCaptureElement() (elem *gst.Element, err error) {
 			}
 		}
 	default:
+		log.Debug("Detected Linux, using ximagesrc")
 		elem, err = gst.NewElement("ximagesrc")
 		if err == nil {
 			_ = elem.SetProperty("show-pointer", true)
@@ -240,4 +256,6 @@ func runAllUntilError(fs []func() error) error {
 	return nil
 }
 
-func logPipelineErr(err error) { log.Error("[go-gst-error] ", err.Error()) }
+func logPipelineErr(err error) {
+	log.Error("[go-gst-error] ", err.Error())
+}

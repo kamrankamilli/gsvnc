@@ -28,7 +28,6 @@ func NewReadWriteBuffer(c net.Conn) *ReadWriter {
 		bw: bufio.NewWriterSize(c, 256<<10),
 		wq: make(chan []byte, 100),
 	}
-
 	go func() {
 		flushTicker := time.NewTicker(5 * time.Millisecond)
 		defer flushTicker.Stop()
@@ -40,7 +39,6 @@ func NewReadWriteBuffer(c net.Conn) *ReadWriter {
 					return
 				}
 				if err := rw.write(msg); err != nil {
-					// writer is dead; mark closed so producers drop immediately
 					rw.Close()
 					return
 				}
@@ -91,7 +89,6 @@ func (rw *ReadWriter) ReadPadding(size int) error {
 func (rw *ReadWriter) Read(v interface{}) error { return binary.Read(rw.br, binary.BigEndian, v) }
 
 // ReadInto reflects on the given struct and populates its fields from the read buffer.
-// The struct fields must be in the order they appear on the buffer.
 func (rw *ReadWriter) ReadInto(data interface{}) error {
 	rv := reflect.ValueOf(data)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
@@ -113,18 +110,39 @@ func (rw *ReadWriter) write(v interface{}) error { return binary.Write(rw.bw, bi
 // flush will flush the contents of the write buffer.
 func (rw *ReadWriter) flush() error { return rw.bw.Flush() }
 
-// Dispatch will push packed message(s) onto the buffer queue, but will
-// drop when closed or when the queue is full (to bound memory).
+// Dispatch keeps existing best-effort behavior for small control messages.
 func (rw *ReadWriter) Dispatch(msg []byte) {
 	if rw.IsClosed() {
 		return
 	}
-	// Protect against send-after-close races.
-	defer func() { _ = recover() }()
-
+	defer func() { _ = recover() }() // send-after-close safety
 	select {
 	case rw.wq <- msg:
 	default:
-		// queue full — drop the frame instead of growing memory
+		// queue full — drop (OK for rare, small control messages)
 	}
 }
+
+// DispatchLatest guarantees queue holds the most recent payload.
+// If full, it drops the oldest then enqueues the new frame.
+func (rw *ReadWriter) DispatchLatest(msg []byte) {
+	if rw.IsClosed() {
+		return
+	}
+	defer func() { _ = recover() }()
+	for {
+		select {
+		case rw.wq <- msg:
+			return
+		default:
+			// drop one oldest (non-blocking)
+			select {
+			case <-rw.wq:
+			default:
+			}
+		}
+	}
+}
+
+// Pending returns approximate queued messages (for pacing).
+func (rw *ReadWriter) Pending() int { return len(rw.wq) }
