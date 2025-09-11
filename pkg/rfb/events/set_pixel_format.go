@@ -22,9 +22,5 @@ func (s *SetPixelFormat) Handle(buf *buffer.ReadWriter, d *display.Display) erro
 	}
 	log.Infof("Client wants pixel format: %#v", pf)
 	d.SetPixelFormat(&pf)
-
-	if err := buf.ReadPadding(3); err != nil {
-		return err
-	}
 	return nil
 }

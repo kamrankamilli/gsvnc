@@ -7,6 +7,7 @@ import (
 
 	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/encodings"
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
@@ -46,6 +47,9 @@ func (d *Display) pushImage(img *image.RGBA) {
 		return
 	}
 	enc := d.GetCurrentEncoding()
+	if enc == nil {
+		enc = &encodings.RawEncoding{}
+	}
 
 	// DO NOT pre-grow to raw size; that pinned ~2MB per frame.
 	var buf bytes.Buffer // small, grows as needed

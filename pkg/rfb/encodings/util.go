@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"image"
-	"strconv"
 
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
@@ -47,8 +46,11 @@ func inRange(v uint32, max uint16) uint32 {
 	switch max {
 	case 0x1f: // 5 bits
 		return v >> (16 - 5)
-	case 0xff:
+	case 0x3f: // 6 bits (green in 565)
+		return v >> (16 - 6)
+	case 0xff: // 8 bits
 		return v >> 8
 	}
-	panic("todo; max value = " + strconv.Itoa(int(max)))
+	// Fallback: clamp to 8bpc
+	return v >> 8
 }

@@ -58,7 +58,7 @@ func computeTightLength(n int) []byte {
 		out = append(out, byte((n>>7)&0x7F))
 		if n > 0x3FFF {
 			out[1] |= 0x80
-			out = append(out, byte((n>>14)&0xFF))
+			out = append(out, byte((n>>14)&0x7F))
 		}
 	}
 	return out

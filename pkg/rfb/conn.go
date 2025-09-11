@@ -48,10 +48,8 @@ func (c *Conn) serve() {
 	defer func() {
 		c.c.Close()
 		c.buf.Close()
-		c.s.removeConn(c) // Remove from tracking
-		c.display.Close()
-
-		// Force cleanup
+		c.s.removeConn(c)
+		c.display.Close() // keep only this one
 		runtime.GC()
 		debug.FreeOSMemory()
 	}()

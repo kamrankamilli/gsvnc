@@ -95,7 +95,14 @@ func (d *Display) SetEncodings(encs []int32, pseudoEns []int32) {
 	d.pseudoEncodings = pseudoEns
 	d.currentEnc = d.getEncodingsFunc(encs)
 }
-func (d *Display) GetCurrentEncoding() encodings.Encoding { return d.currentEnc }
+
+func (d *Display) GetCurrentEncoding() encodings.Encoding {
+	if d.currentEnc != nil {
+		return d.currentEnc
+	}
+	// Safe fallback order: Tight -> Raw
+	return encodings.NewTight(encodings.TightOptions{JPEGQuality: 75})
+}
 
 // GetLastImage blocks until a frame is available (or provider closed).
 func (d *Display) GetLastImage() *image.RGBA { return d.displayProvider.PullFrame() }
