@@ -36,13 +36,31 @@ func (g *Gstreamer) Close() error {
 	if g.done != nil {
 		close(g.done)
 	}
-	if g.pipeline == nil {
-		return nil
+
+	if g.frameQueue != nil {
+	drain:
+		for {
+			select {
+			case <-g.frameQueue:
+			default:
+				break drain
+			}
+		}
+		close(g.frameQueue)
+		g.frameQueue = nil
 	}
-	err := g.pipeline.SetState(gst.StateNull)
-	g.pipeline.Unref()
-	g.pipeline = nil
-	return err
+
+	if g.pipeline != nil {
+		err := g.pipeline.SetState(gst.StateNull)
+		g.pipeline.Unref()
+		g.pipeline = nil
+		return err
+	}
+
+	g.workA = nil
+	g.workB = nil
+
+	return nil
 }
 
 // PullFrame returns a frame or nil if closed.

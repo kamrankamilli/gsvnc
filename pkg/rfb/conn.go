@@ -21,7 +21,7 @@ type Conn struct {
 
 func (s *Server) newConn(c net.Conn) *Conn {
 	buf := buffer.NewReadWriteBuffer(c)
-	return &Conn{
+	conn := &Conn{
 		c:   c,
 		s:   s,
 		buf: buf,
@@ -33,14 +33,22 @@ func (s *Server) newConn(c net.Conn) *Conn {
 			GetEncodingFunc: s.GetEncoding,
 		}),
 	}
+
+	s.connMu.Lock()
+	s.connections[conn] = struct{}{}
+	s.connMu.Unlock()
+
+	return conn
 }
 
 func (c *Conn) serve() {
-	defer c.c.Close()
-	defer c.buf.Close() // stop writer goroutine immediately
-
-	// Ensure freed pages are returned quickly after this connection ends.
 	defer func() {
+		c.c.Close()
+		c.buf.Close()
+		c.s.removeConn(c) // Remove from tracking
+		c.display.Close()
+
+		// Force cleanup
 		runtime.GC()
 		debug.FreeOSMemory()
 	}()
@@ -68,5 +76,24 @@ func (c *Conn) serve() {
 		} else {
 			log.Warningf("Unsupported command type %d from client\n", int(cmd))
 		}
+	}
+}
+
+func (s *Server) removeConn(conn *Conn) {
+	s.connMu.Lock()
+	delete(s.connections, conn)
+	s.connMu.Unlock()
+}
+
+func (s *Server) CloseAllConnections() {
+	s.connMu.RLock()
+	connections := make([]*Conn, 0, len(s.connections))
+	for conn := range s.connections {
+		connections = append(connections, conn)
+	}
+	s.connMu.RUnlock()
+
+	for _, conn := range connections {
+		conn.c.Close()
 	}
 }

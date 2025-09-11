@@ -27,11 +27,25 @@ func (s *ScreenCapture) Close() error {
 	if s.stopCh != nil {
 		close(s.stopCh)
 	}
-	s.wg.Wait() // ensure goroutine done before clearing memory
-	// Release references so GC can reclaim immediately.
-	s.frameQueue = nil
+	if s.frameQueue != nil {
+	drain:
+		for {
+			select {
+			case <-s.frameQueue:
+			default:
+				break drain
+			}
+		}
+		close(s.frameQueue)
+		s.frameQueue = nil
+	}
+
+	s.wg.Wait()
+
+	// Release buffers
 	s.workA = nil
 	s.workB = nil
+
 	return nil
 }
 

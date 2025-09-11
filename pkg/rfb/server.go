@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"sync"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -68,6 +69,9 @@ type Server struct {
 	enabledEncodings []encodings.Encoding
 	enabledAuthTypes []auth.Type
 	enabledEvents    []events.Event
+
+	connections map[*Conn]struct{}
+	connMu      sync.RWMutex
 }
 
 // Serve binds the RFB server to the given listener and starts serving connections.
