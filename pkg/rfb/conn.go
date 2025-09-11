@@ -35,6 +35,9 @@ func (s *Server) newConn(c net.Conn) *Conn {
 	}
 
 	s.connMu.Lock()
+	if s.connections == nil { // extra safety
+		s.connections = make(map[*Conn]struct{})
+	}
 	s.connections[conn] = struct{}{}
 	s.connMu.Unlock()
 

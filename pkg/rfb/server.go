@@ -36,6 +36,7 @@ func NewServer(opts *ServerOpts) *Server {
 		enabledEncodings: opts.EnabledEncodings,
 		enabledAuthTypes: opts.EnabledAuthTypes,
 		enabledEvents:    opts.EnabledEvents,
+		connections:      make(map[*Conn]struct{}),
 	}
 
 	// Configure default events if any are empty
