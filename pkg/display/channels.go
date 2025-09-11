@@ -45,7 +45,6 @@ func (d *Display) handlePointerEvents() {
 				}
 			}
 		handle:
-			log.Debug("Got pointer event: ", ev)
 			d.servePointerEvent(ev)
 		}
 	}
