@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/jpeg"
 	"io"
+	"sync"
 
 	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
@@ -37,10 +38,13 @@ func (t *TightEncoding) Code() int32 { return 7 }
 
 // HandleBuffer JPEG-encodes the RGBA frame and writes Tight payload.
 // Layout: [control byte=0x90] [varlen length] [JPEG bytes]
+var jpegPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
 func (t *TightEncoding) HandleBuffer(w io.Writer, f *types.PixelFormat, img *image.RGBA) {
-	// Encode JPEG into a fresh buffer so GC can reclaim after send.
-	var jb bytes.Buffer
-	if err := jpeg.Encode(&jb, img, &jpeg.Options{Quality: t.quality}); err != nil {
+	jb := jpegPool.Get().(*bytes.Buffer)
+	jb.Reset()
+	defer jpegPool.Put(jb)
+	if err := jpeg.Encode(jb, img, &jpeg.Options{Quality: t.quality}); err != nil {
 		return // drop frame on error
 	}
 	jpegBytes := jb.Bytes()

@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"image"
 	"image/draw"
+	"sync"
 
 	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
 	"github.com/kamrankamilli/gsvnc/pkg/internal/util"
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/encodings"
 	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
+
+var fbBufPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
 
 const (
 	encodingCopyRect     = 1
@@ -43,24 +46,27 @@ func (d *Display) pushImage(img *image.RGBA) {
 	b := img.Bounds()
 	format := d.GetPixelFormat()
 	if format.TrueColour == 0 {
-		log.Error("only true-colour supported")
-		return
+		// Fallback to a known-good format to keep the session alive
+		format = DefaultPixelFormat
+		d.SetPixelFormat(format)
 	}
 	enc := d.GetCurrentEncoding()
 	if enc == nil {
 		enc = &encodings.RawEncoding{}
 	}
 
-	// DO NOT pre-grow to raw size; that pinned ~2MB per frame.
-	var buf bytes.Buffer // small, grows as needed
+	// Use pooled buffer to reduce allocations
+	buf := fbBufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer fbBufPool.Put(buf)
 
 	// header
-	util.Write(&buf, uint8(cmdFramebufferUpdate))
-	util.Write(&buf, uint8(0))  // padding
-	util.Write(&buf, uint16(1)) // rectangles=1
+	util.Write(buf, uint8(cmdFramebufferUpdate))
+	util.Write(buf, uint8(0))  // padding
+	util.Write(buf, uint16(1)) // rectangles=1
 
 	// rectangle header
-	util.PackStruct(&buf, &types.FrameBufferRectangle{
+	util.PackStruct(buf, &types.FrameBufferRectangle{
 		X:       uint16(b.Min.X),
 		Y:       uint16(b.Min.Y),
 		Width:   uint16(b.Dx()),
@@ -69,7 +75,7 @@ func (d *Display) pushImage(img *image.RGBA) {
 	})
 
 	// payload by encoder
-	enc.HandleBuffer(&buf, d.GetPixelFormat(), img)
+	enc.HandleBuffer(buf, d.GetPixelFormat(), img)
 
 	// Final guard: drop if closed
 	if d.buf != nil && d.buf.IsClosed() {

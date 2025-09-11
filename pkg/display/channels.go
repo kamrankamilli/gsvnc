@@ -1,6 +1,7 @@
 package display
 
 import (
+	"hash/crc32"
 	"time"
 
 	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
@@ -78,7 +79,9 @@ func (d *Display) handleFrameBufferEvents() {
 			}
 			last := d.GetLastImage()
 			if last != nil {
-				d.pushImage(last)
+				if !frameUnchangedSample(last.Pix, last.Stride, last.Rect.Dx(), last.Rect.Dy(), &d.lastFrameHash) {
+					d.pushImage(last)
+				}
 			}
 		}
 	}
@@ -104,4 +107,28 @@ func (d *Display) watchChannels() {
 	go d.handlePointerEvents()
 	go d.handleFrameBufferEvents()
 	go d.handleCutTextEvents()
+}
+
+// frameUnchangedSample computes a CRC32 over a subsampled set of pixels to cheaply detect changes.
+// It samples every 8th pixel in both axes to keep cost low.
+func frameUnchangedSample(pix []uint8, stride int, width int, height int, lastHash *uint32) bool {
+	if width <= 0 || height <= 0 {
+		return true
+	}
+	const step = 8
+	tab := crc32.IEEETable
+	var h uint32
+	for y := 0; y < height; y += step {
+		row := y * stride
+		for x := 0; x < width*4; x += step * 4 {
+			if row+x+4 <= len(pix) {
+				h = crc32.Update(h, tab, pix[row+x:row+x+4])
+			}
+		}
+	}
+	if h == *lastHash {
+		return true
+	}
+	*lastHash = h
+	return false
 }

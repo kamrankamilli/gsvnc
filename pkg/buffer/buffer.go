@@ -29,7 +29,7 @@ func NewReadWriteBuffer(c net.Conn) *ReadWriter {
 		wq: make(chan []byte, 100),
 	}
 	go func() {
-		flushTicker := time.NewTicker(5 * time.Millisecond)
+		flushTicker := time.NewTicker(8 * time.Millisecond)
 		defer flushTicker.Stop()
 		for {
 			select {

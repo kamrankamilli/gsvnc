@@ -4,6 +4,7 @@ import (
 	"net"
 	"runtime"
 	"runtime/debug"
+	"time"
 
 	"github.com/kamrankamilli/gsvnc/pkg/buffer"
 	"github.com/kamrankamilli/gsvnc/pkg/display"
@@ -63,8 +64,13 @@ func (c *Conn) serve() {
 	defer events.CloseEventHandlers(eventHandlers)
 
 	for {
+		_ = c.c.SetReadDeadline(time.Now().Add(60 * time.Second))
 		cmd, err := c.buf.ReadByte()
 		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				log.Warningf("Client read timeout")
+				return
+			}
 			log.Errorf("Client disconnect: %s", err.Error())
 			return
 		}

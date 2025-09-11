@@ -49,17 +49,22 @@ func (d *Display) servePointerEvent(ev *types.PointerEvent) {
 	}
 
 	// Scroll — batch per event (still 1 unit per bit)
-	if nthBitOf(ev.ButtonMask, 3) == 1 {
-		robotgo.Scroll(0, 1)
+	dy := 0
+	dx := 0
+	if nthBitOf(ev.ButtonMask, 3) == 1 { // up
+		dy++
 	}
-	if nthBitOf(ev.ButtonMask, 4) == 1 {
-		robotgo.Scroll(0, -1)
+	if nthBitOf(ev.ButtonMask, 4) == 1 { // down
+		dy--
 	}
-	if nthBitOf(ev.ButtonMask, 5) == 1 {
-		robotgo.Scroll(-1, 0)
+	if nthBitOf(ev.ButtonMask, 5) == 1 { // left
+		dx--
 	}
-	if nthBitOf(ev.ButtonMask, 6) == 1 {
-		robotgo.Scroll(1, 0)
+	if nthBitOf(ev.ButtonMask, 6) == 1 { // right
+		dx++
+	}
+	if dx != 0 || dy != 0 {
+		robotgo.Scroll(dx, dy)
 	}
 
 	d.lastBtnMask = ev.ButtonMask

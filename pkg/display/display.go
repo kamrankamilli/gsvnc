@@ -41,6 +41,9 @@ type Display struct {
 	done chan struct{}
 
 	closeOnce sync.Once
+
+	// lastFrameHash is used to skip sending identical frames on idle screen
+	lastFrameHash uint32
 }
 
 // DefaultPixelFormat used in ServerInit messages (16bpp 5-6-5 true colour).
