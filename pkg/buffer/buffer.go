@@ -58,15 +58,6 @@ func (rw *ReadWriter) Close() {
 	rw.closeOnce.Do(func() {
 		atomic.StoreUint32(&rw.closed, 1)
 		close(rw.wq)
-
-	drain:
-		for {
-			select {
-			case <-rw.wq:
-			default:
-				break drain
-			}
-		}
 	})
 }
 

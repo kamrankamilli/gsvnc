@@ -35,6 +35,16 @@ func (d *Display) handlePointerEvents() {
 			if !ok {
 				return
 			}
+			// Drain to the most recent event to avoid lag/backlog
+			for {
+				select {
+				case next := <-d.ptrEvQueue:
+					ev = next
+				default:
+					goto handle
+				}
+			}
+		handle:
 			log.Debug("Got pointer event: ", ev)
 			d.servePointerEvent(ev)
 		}

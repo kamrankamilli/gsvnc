@@ -2,6 +2,7 @@ package display
 
 import (
 	"image"
+	"sync"
 
 	"github.com/kamrankamilli/gsvnc/pkg/buffer"
 	"github.com/kamrankamilli/gsvnc/pkg/display/providers"
@@ -38,6 +39,8 @@ type Display struct {
 
 	// closed to stop watcher goroutines
 	done chan struct{}
+
+	closeOnce sync.Once
 }
 
 // DefaultPixelFormat used in ServerInit messages (16bpp 5-6-5 true colour).
@@ -125,17 +128,19 @@ func (d *Display) Start() error {
 
 // Close stops everything and releases references so GC can collect promptly.
 func (d *Display) Close() error {
-	close(d.done)
-	close(d.fbReqQueue)
-	close(d.ptrEvQueue)
-	close(d.keyEvQueue)
-	close(d.cutTxtEvsQ)
+	var err error
+	d.closeOnce.Do(func() {
+		close(d.done)
+		close(d.fbReqQueue)
+		close(d.ptrEvQueue)
+		close(d.keyEvQueue)
+		close(d.cutTxtEvsQ)
 
-	err := d.displayProvider.Close()
-	d.displayProvider = nil
+		err = d.displayProvider.Close()
+		d.displayProvider = nil
 
-	// Help GC drop memory quickly.
-	d.downKeys = nil
-	d.outBuf = nil
+		d.downKeys = nil
+		d.outBuf = nil
+	})
 	return err
 }

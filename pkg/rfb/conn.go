@@ -58,7 +58,6 @@ func (c *Conn) serve() {
 		log.Errorf("Error starting display: %s", err)
 		return
 	}
-	defer c.display.Close()
 
 	eventHandlers := c.s.GetEventHandlerMap()
 	defer events.CloseEventHandlers(eventHandlers)
