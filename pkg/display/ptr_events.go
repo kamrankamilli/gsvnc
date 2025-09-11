@@ -11,8 +11,7 @@ import (
 var (
 	cachedScreenW, cachedScreenH int
 	lastScaleCheck               time.Time
-	lastMouseX, lastMouseY       int
-	lastMoveAt                   time.Time
+	lastX, lastY                 int
 )
 
 func (d *Display) servePointerEvent(ev *types.PointerEvent) {
@@ -30,10 +29,9 @@ func (d *Display) servePointerEvent(ev *types.PointerEvent) {
 	}
 
 	// Skip no-op move, and soft throttle to ~100–150 Hz
-	if (x != lastMouseX || y != lastMouseY) && now.Sub(lastMoveAt) >= 7*time.Millisecond {
+	if x != lastX || y != lastY {
 		robotgo.Move(x, y)
-		lastMouseX, lastMouseY = x, y
-		lastMoveAt = now
+		lastX, lastY = x, y
 	}
 
 	// Buttons (edge detection)

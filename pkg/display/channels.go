@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kamrankamilli/gsvnc/pkg/internal/log"
+	"github.com/kamrankamilli/gsvnc/pkg/rfb/types"
 )
 
 func (d *Display) handleKeyEvents() {
@@ -27,6 +28,10 @@ func (d *Display) handleKeyEvents() {
 }
 
 func (d *Display) handlePointerEvents() {
+	ticker := time.NewTicker(time.Millisecond * 8)
+	defer ticker.Stop()
+
+	var pending *types.PointerEvent
 	for {
 		select {
 		case <-d.done:
@@ -35,17 +40,12 @@ func (d *Display) handlePointerEvents() {
 			if !ok {
 				return
 			}
-			// Drain to the most recent event to avoid lag/backlog
-			for {
-				select {
-				case next := <-d.ptrEvQueue:
-					ev = next
-				default:
-					goto handle
-				}
+			pending = ev
+		case <-ticker.C:
+			if pending != nil {
+				d.servePointerEvent(pending)
+				pending = nil
 			}
-		handle:
-			d.servePointerEvent(ev)
 		}
 	}
 }

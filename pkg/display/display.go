@@ -78,7 +78,7 @@ func NewDisplay(opts *Opts) *Display {
 		getEncodingsFunc: opts.GetEncodingFunc,
 		pixelFormat:      DefaultPixelFormat,
 		fbReqQueue:       make(chan *types.FrameBufferUpdateRequest, 128),
-		ptrEvQueue:       make(chan *types.PointerEvent, 128),
+		ptrEvQueue:       make(chan *types.PointerEvent, 32),
 		keyEvQueue:       make(chan *types.KeyEvent, 128),
 		cutTxtEvsQ:       make(chan *types.ClientCutText, 128),
 		downKeys:         make([]uint32, 0),
@@ -113,8 +113,21 @@ func (d *Display) GetLastImage() *image.RGBA { return d.displayProvider.PullFram
 // Dispatch methods
 func (d *Display) DispatchFrameBufferUpdate(req *types.FrameBufferUpdateRequest) { d.fbReqQueue <- req }
 func (d *Display) DispatchKeyEvent(ev *types.KeyEvent)                           { d.keyEvQueue <- ev }
-func (d *Display) DispatchPointerEvent(ev *types.PointerEvent)                   { d.ptrEvQueue <- ev }
-func (d *Display) DispatchClientCutText(ev *types.ClientCutText)                 { d.cutTxtEvsQ <- ev }
+func (d *Display) DispatchPointerEvent(ev *types.PointerEvent) {
+	select {
+	case d.ptrEvQueue <- ev:
+	default:
+		select {
+		case <-d.ptrEvQueue:
+		default:
+		}
+		select {
+		case d.ptrEvQueue <- ev:
+		default:
+		}
+	}
+}
+func (d *Display) DispatchClientCutText(ev *types.ClientCutText) { d.cutTxtEvsQ <- ev }
 
 // Start provider and watchers.
 func (d *Display) Start() error {
